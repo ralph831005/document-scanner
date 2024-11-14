@@ -1,26 +1,19 @@
-# USAGE:
-# python scan.py (--images <IMG_DIR> | --image <IMG_PATH>) [-i]
-# For example, to scan a single image with interactive mode:
-# python scan.py --image sample_images/desk.JPG -i
-# To scan all images in a directory automatically:
-# python scan.py --images sample_images
-
-# Scanned images will be output to directory named 'output'
-
-from pyimagesearch import transform
-from pyimagesearch import imutils
-from scipy.spatial import distance as dist
-from matplotlib.patches import Polygon
-import polygon_interacter as poly_i
-import numpy as np
-import matplotlib.pyplot as plt
+import argparse
 import itertools
 import math
-import cv2
-from pylsd.lsd import lsd
-
-import argparse
 import os
+
+import cv2
+import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+import numpy as np
+from pylsd.lsd import lsd
+from scipy.spatial import distance as dist
+
+
+from .pyimagesearch import transform, imutils
+from . import polygon_interacter as poly_i
+
 
 class DocScanner(object):
     """An image scanner"""
@@ -30,15 +23,15 @@ class DocScanner(object):
         Args:
             interactive (boolean): If True, user can adjust screen contour before
                 transformation occurs in interactive pyplot window.
-            MIN_QUAD_AREA_RATIO (float): A contour will be rejected if its corners 
-                do not form a quadrilateral that covers at least MIN_QUAD_AREA_RATIO 
+            MIN_QUAD_AREA_RATIO (float): A contour will be rejected if its corners
+                do not form a quadrilateral that covers at least MIN_QUAD_AREA_RATIO
                 of the original image. Defaults to 0.25.
-            MAX_QUAD_ANGLE_RANGE (int):  A contour will also be rejected if the range 
+            MAX_QUAD_ANGLE_RANGE (int):  A contour will also be rejected if the range
                 of its interior angles exceeds MAX_QUAD_ANGLE_RANGE. Defaults to 40.
-        """        
+        """
         self.interactive = interactive
         self.MIN_QUAD_AREA_RATIO = MIN_QUAD_AREA_RATIO
-        self.MAX_QUAD_ANGLE_RANGE = MAX_QUAD_ANGLE_RANGE        
+        self.MAX_QUAD_ANGLE_RANGE = MAX_QUAD_ANGLE_RANGE
 
     def filter_corners(self, corners, min_dist=20):
         """Filters corners that are within min_dist of others"""
@@ -59,7 +52,7 @@ class DocScanner(object):
 
     def get_angle(self, p1, p2, p3):
         """
-        Returns the angle between the line segment from p2 to p1 
+        Returns the angle between the line segment from p2 to p1
         and the line segment from p2 to p3 in degrees
         """
         a = np.radians(np.array(p1))
@@ -246,7 +239,6 @@ class DocScanner(object):
 
         else:
             screenCnt = max(approx_contours, key=cv2.contourArea)
-            
         return screenCnt.reshape(4, 2)
 
     def interactive_get_contour(self, screenCnt, rescaled_image):
@@ -263,17 +255,9 @@ class DocScanner(object):
         new_points = np.array([[p] for p in new_points], dtype = "int32")
         return new_points.reshape(4, 2)
 
-    def scan(self, image_path):
+    def scan(self, image):
 
         RESCALED_HEIGHT = 500.0
-
-        OUTPUT_DIR = os.path.join(os.getcwd(), "output")
-
-        # load the image and compute the ratio of the old height
-        # to the new height, clone it, and resize it
-        image = cv2.imread(image_path)
-
-        assert(image is not None)
 
         ratio = image.shape[0] / RESCALED_HEIGHT
         orig = image.copy()
@@ -297,44 +281,4 @@ class DocScanner(object):
 
         # apply adaptive threshold to get black and white effect
         thresh = cv2.adaptiveThreshold(sharpen, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 15)
-
-        # save the transformed image
-        basename = os.path.basename(image_path)
-
-        if os.path.exists(OUTPUT_DIR):
-            cv2.imwrite(OUTPUT_DIR + '/' + basename, thresh)
-            print("Proccessed " + basename)
-        else:
-            os.mkdir(OUTPUT_DIR)
-            cv2.imwrite(OUTPUT_DIR + '/' + basename, thresh)
-            print("Proccessed " + basename)
-
-
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    group = ap.add_mutually_exclusive_group(required=True)
-    group.add_argument("--images", help="Directory of images to be scanned")
-    group.add_argument("--image", help="Path to single image to be scanned")
-    ap.add_argument("-i", action='store_true',
-        help = "Flag for manually verifying and/or setting document corners")
-
-    args = vars(ap.parse_args())
-    im_dir = args["images"]
-    im_file_path = args["image"]
-    interactive_mode = args["i"]
-
-    scanner = DocScanner(interactive_mode)
-
-    valid_formats = [".jpg", ".jpeg", ".jp2", ".png", ".bmp", ".tiff", ".tif"]
-
-    get_ext = lambda f: os.path.splitext(f)[1].lower()
-
-    # Scan single image specified by command line argument --image <IMAGE_PATH>
-    if im_file_path:
-        scanner.scan(im_file_path)
-
-    # Scan all valid images in directory specified by command line argument --images <IMAGE_DIR>
-    else:
-        im_files = [f for f in os.listdir(im_dir) if get_ext(f) in valid_formats]
-        for im in im_files:
-            scanner.scan(im_dir + '/' + im)
+        return thresh
